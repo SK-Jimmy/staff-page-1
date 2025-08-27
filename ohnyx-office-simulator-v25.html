@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ohnyx Office Simulator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        
+        #chatInterface {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: none;
+            z-index: 200;
+        }
+        
+        #chatMessages {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            color: white;
+        }
+        
+        .message {
+            margin: 8px 0;
+            padding: 8px 12px;
+            border-radius: 8px;
+        }
+        
+        .user-message {
+            background: rgba(59, 130, 246, 0.3);
+            text-align: right;
+        }
+        
+        .npc-message {
+            background: rgba(16, 185, 129, 0.3);
+        }
+        
+        #chatInput {
+            width: calc(100% - 80px);
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+        }
+        
+        #sendButton {
+            width: 60px;
+            padding: 12px;
+            margin-left: 10px;
+            border: none;
+            border-radius: 8px;
+            background: #3b82f6;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        #sendButton:hover {
+            background: #2563eb;
+        }
+        
+        #closeChat {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            font-size: 12px;
+        }
+        
+        #interactionPrompt {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            z-index: 150;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="ui">
+            <h3>🏢 Ohnyx IT Solutions Simulator</h3>
+            <div>Walk around and meet the MSP team!</div>
+            <div>Press 1 near someone to chat</div>
+        </div>
+        
+        <div id="interactionPrompt">
+            <div>Press <strong>1</strong> to chat with this person</div>
+        </div>
+        
+        <div id="chatInterface">
+            <button id="closeChat">&times;</button>
+            <div id="currentNPC"></div>
+            <div id="chatMessages"></div>
+            <div style="display: flex;">
+                <input type="text" id="chatInput" placeholder="Type your message...">
+                <button id="sendButton">Send</button>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div><strong>Controls:</strong></div>
+            <div>↑↓ - Move forward/back</div>
+            <div>← → - Look around</div>
+            <div>1 - Interact</div>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let scene, camera, renderer, player;
+        let moveForward = false, moveBackward = false;
+        let rotateLeft = false, rotateRight = false;
+        let currentNPC = null;
+        let npcs = [];
+        
+        // CONFIGURATION: Customize your NPCs and chat behavior here
+        const CONFIG = {
+            // Chat API settings
+            chatAPI: {
+                enabled: false,  // Set to true to use external API
+                endpoint: 'https://your-api-endpoint.com/chat',
+                apiKey: 'your-api-key-here'
+            },
+            
+            // Website integration
+            websiteIntegration: {
+                enabled: false,  // Set to true to redirect conversations
+                baseUrl: 'https://your-website.com/chat/',
+                openInNewTab: true
+            }
+        };
+        
+        // CUSTOMIZE YOUR PEOPLE: Easily modify or add new characters
+        const founderData = {
+            'Philip Harvey': {
+                position: { x: -15, z: 5 },
+                color: 0x3b82f6,
+                role: 'Director',
+                personality: 'Strategic leader who sees the big picture while keeping his feet firmly on the ground. Makes executive decisions with surprising humor.',
+                avatar: '👔',
+                responses: [
+                    "As Director, my job is 50% strategic vision, 30% putting out fires, and 20% pretending I understand what the accountant just said.",
+                    "I love it when clients say 'just make it work' - like that's not literally what we've been trying to do this whole time!",
+                    "The secret to being a good director? Hire people smarter than you, then take credit when things go well. Just kidding! ...mostly.",
+                    "Executive summary of our MSP model: We fix stuff before it breaks, and when it does break anyway, we fix it faster than you can say 'have you tried turning it off and on again?'"
+                ]
+            },
+            'Michael Hollingsworth': {
+                position: { x: 15, z: -5 },
+                color: 0x10b981,
+                role: 'Operational Manager',
+                personality: 'Keeps the chaos organized and the team functioning. Masters the art of making impossible timelines somehow work.',
+                avatar: '⚙️',
+                responses: [
+                    "Operations is like herding cats, except the cats are IT tickets and they're all marked 'URGENT ASAP CRITICAL YESTERDAY PLEASE'.",
+                    "My manufacturing background taught me about efficiency. Turns out IT support is just manufacturing, but instead of widgets we're producing 'working computers'.",
+                    "I schedule everything except the inevitable Monday morning server meltdown. That one's always a surprise, like Christmas but with more swearing.",
+                    "Best part of operations? When everything runs so smoothly that people forget we exist. Worst part? When they remember we exist because something's broken."
+                ]
+            },
+            'Kelly Pothan': {
+                position: { x: 0, z: 15 },
+                color: 0xf59e0b,
+                role: 'Team Leader',
+                personality: 'Leads by example while keeping the team motivated and clients happy. Expert at translating between tech speak and human speak.',
+                avatar: '👨‍💼',
+                responses: [
+                    "Leading an IT team is like conducting an orchestra, except half the instruments are on fire and the audience keeps asking if we've tried turning it off and on again.",
+                    "My job description: Keep the team happy, keep the clients happier, and somehow make sure both groups understand each other. It's like being a UN translator for nerds.",
+                    "Team meeting agenda item #1: Remember, 'It works on my machine' is not a valid solution for client problems.",
+                    "The art of team leadership in MSP: Knowing when to say 'yes we can do that' and when to say 'yes we can do that, but here's why you probably don't want to'."
+                ]
+            },
+            'Briar Harvey': {
+                position: { x: -10, z: -15 },
+                color: 0x8b5cf6,
+                role: 'Client Success',
+                personality: 'Ensures clients are happy and successful while managing the delicate balance between expectations and reality.',
+                avatar: '🤝',
+                responses: [
+                    "Client Success is like being a therapist for businesses having relationship problems with their technology. 'Tell me, how does this server outage make you feel?'",
+                    "My superpower? Explaining why your 15-year-old system running on hopes and dreams might benefit from an upgrade. Diplomatically.",
+                    "Client expectations vs. IT reality - it's like explaining why you can't download more RAM while keeping everyone smiling.",
+                    "Success metric: When clients stop calling us because everything just works, but they still invite us to their Christmas party because we're cool like that."
+                ]
+            },
+            'Jake Sully': {
+                position: { x: 10, z: 10 },
+                color: 0x06b6d4,
+                role: 'Level 2 Technician',
+                personality: 'The problem-solving hero who tackles the tough technical challenges when Level 1 support says "it\'s beyond me".',
+                avatar: '🔧',
+                responses: [
+                    "Level 2 tech support: Where 'have you tried turning it off and on again?' becomes 'okay, now we rebuild the entire network stack'.",
+                    "I'm like the special forces of IT support. When Level 1 calls for backup, I rappel in with my keyboard and a thermos of coffee.",
+                    "My troubleshooting philosophy: If it's stupid but it works, it's not stupid. If it's still broken after that, then we get creative.",
+                    "The difference between Level 1 and Level 2? Level 1 asks if you've rebooted. Level 2 knows 47 different ways to reboot and which one your specific system actually needs."
+                ]
+            },
+            'Elena Tatham': {
+                position: { x: -20, z: 10 },
+                color: 0xec4899,
+                role: 'Book Keeper',
+                personality: 'Financial wizard who keeps the numbers straight and the invoices flowing. The only person who can make accounting seem almost fun.',
+                avatar: '📊',
+                responses: [
+                    "Bookkeeping for an MSP is interesting - I invoice for 'made computer go beep-boop properly' and somehow that's a legitimate business expense.",
+                    "My favorite part of the job? When the accountants and the techies try to explain their worlds to each other. It's like watching a nature documentary about different species attempting communication.",
+                    "I've learned that 'emergency server upgrade' and 'emergency chocolate purchase' both fall under 'critical business expenses' in my books.",
+                    "Fun fact: The most expensive line item this month was 'prevented total IT meltdown'. ROI: Priceless. Literally, because how do you calculate the value of NOT having your business implode?"
+                ]
+            },
+            'Richard Hollins': {
+                position: { x: 20, z: -10 },
+                color: 0x6b7280,
+                role: 'Infrastructure Engineer',
+                personality: 'Deeply cynical about technology and human nature, but grudgingly admits when things actually work. Dry wit with a pessimistic streak.',
+                avatar: '🏗️',
+                responses: [
+                    "Infrastructure engineering: Building digital bridges that people drive their data trucks across, then complain when the bridge isn't made of pure diamond. Charming.",
+                    "Everyone wants 99.99% uptime until they see the bill for 99.99% uptime. Then suddenly 'good enough' becomes the new corporate motto.",
+                    "I've designed networks that could survive a nuclear apocalypse, only to watch them brought down by Kevin from accounting trying to print a PDF. The irony is not lost on me.",
+                    "Client: 'Why is this so expensive?' Me: 'Because you want it to work.' Client: 'Can we make it cheaper?' Me: 'Sure, how much downtime can you tolerate?' *awkward silence*"
+                ]
+            }
+        };
+
+        function init() {
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x222222, 50, 200);
+            
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 5, 0);
+            
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x222222);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('gameContainer').appendChild(renderer.domElement);
+            
+            createOffice();
+            createNPCs();
+            setupControls();
+            setupChat();
+            
+            animate();
+        }
+        
+        function createOffice() {
+            // Floor
+            const floorGeometry = new THREE.PlaneGeometry(100, 100);
+            const floorMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x404040,
+                transparent: true,
+                opacity: 0.8
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            scene.add(floor);
+            
+            // Walls
+            const wallMaterial = new THREE.MeshLambertMaterial({ color: 0x606060 });
+            
+            // Back wall
+            const backWall = new THREE.Mesh(new THREE.PlaneGeometry(100, 20), wallMaterial);
+            backWall.position.set(0, 10, -50);
+            scene.add(backWall);
+            
+            // Side walls
+            const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(100, 20), wallMaterial);
+            leftWall.rotation.y = Math.PI / 2;
+            leftWall.position.set(-50, 10, 0);
+            scene.add(leftWall);
+            
+            const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(100, 20), wallMaterial);
+            rightWall.rotation.y = -Math.PI / 2;
+            rightWall.position.set(50, 10, 0);
+            scene.add(rightWall);
+            
+            // Office furniture
+            createFurniture();
+            
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+            directionalLight.position.set(20, 20, 10);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+            
+            // Office mood lighting
+            const pointLight1 = new THREE.PointLight(0x3b82f6, 0.5, 30);
+            pointLight1.position.set(-20, 10, 10);
+            scene.add(pointLight1);
+            
+            const pointLight2 = new THREE.PointLight(0x10b981, 0.5, 30);
+            pointLight2.position.set(20, 10, -10);
+            scene.add(pointLight2);
+        }
+        
+        function createFurniture() {
+            const deskMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+            
+            // Desks around the office
+            const deskPositions = [
+                { x: -20, z: 0 }, { x: 20, z: 10 }, { x: -10, z: 20 }, 
+                { x: 10, z: -20 }, { x: 0, z: -30 }, { x: -25, z: -10 }
+            ];
+            
+            deskPositions.forEach(pos => {
+                const desk = new THREE.Mesh(new THREE.BoxGeometry(8, 1, 4), deskMaterial);
+                desk.position.set(pos.x, 2, pos.z);
+                desk.castShadow = true;
+                scene.add(desk);
+                
+                // Add a monitor
+                const monitor = new THREE.Mesh(
+                    new THREE.BoxGeometry(3, 2, 0.2),
+                    new THREE.MeshLambertMaterial({ color: 0x000000 })
+                );
+                monitor.position.set(pos.x, 4, pos.z);
+                scene.add(monitor);
+            });
+            
+            // Conference table in center
+            const conferenceTable = new THREE.Mesh(
+                new THREE.CylinderGeometry(6, 6, 1, 8),
+                new THREE.MeshLambertMaterial({ color: 0x654321 })
+            );
+            conferenceTable.position.set(0, 2, 5);
+            conferenceTable.castShadow = true;
+            scene.add(conferenceTable);
+            
+            // Chairs around conference table
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const chair = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.5, 3, 1.5),
+                    new THREE.MeshLambertMaterial({ color: 0x2d2d2d })
+                );
+                chair.position.set(
+                    Math.cos(angle) * 9,
+                    1.5,
+                    5 + Math.sin(angle) * 9
+                );
+                chair.castShadow = true;
+                scene.add(chair);
+            }
+            
+            // Plants for office ambiance
+            const plantMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+            const plantPositions = [
+                { x: -35, z: -35 }, { x: 35, z: 35 }, { x: -35, z: 35 }, { x: 35, z: -35 }
+            ];
+            
+            plantPositions.forEach(pos => {
+                const plant = new THREE.Mesh(new THREE.SphereGeometry(2, 8, 6), plantMaterial);
+                plant.position.set(pos.x, 3, pos.z);
+                scene.add(plant);
+            });
+        }
+        
+        function createNPCs() {
+            Object.entries(founderData).forEach(([name, data]) => {
+                // Create NPC representation
+                const npcGroup = new THREE.Group();
+                
+                // Body
+                const body = new THREE.Mesh(
+                    new THREE.CylinderGeometry(1, 1.5, 4, 8),
+                    new THREE.MeshLambertMaterial({ color: data.color })
+                );
+                body.position.y = 3;
+                body.castShadow = true;
+                npcGroup.add(body);
+                
+                // Head
+                const head = new THREE.Mesh(
+                    new THREE.SphereGeometry(1.2, 16, 16),
+                    new THREE.MeshLambertMaterial({ color: 0xffdbac })
+                );
+                head.position.y = 6;
+                head.castShadow = true;
+                npcGroup.add(head);
+                
+                // Name tag floating above
+                const nameTag = createTextSprite(name, '#ffffff');
+                nameTag.position.y = 9;
+                nameTag.scale.set(3, 1.5, 1);
+                npcGroup.add(nameTag);
+                
+                // Role tag
+                const roleTag = createTextSprite(data.role, data.color);
+                roleTag.position.y = 7.5;
+                roleTag.scale.set(2, 1, 1);
+                npcGroup.add(roleTag);
+                
+                npcGroup.position.set(data.position.x, 0, data.position.z);
+                npcGroup.userData = { name, data };
+                
+                scene.add(npcGroup);
+                npcs.push(npcGroup);
+                
+                // Add subtle floating animation
+                npcGroup.userData.originalY = 0;
+                npcGroup.userData.animOffset = Math.random() * Math.PI * 2;
+            });
+        }
+        
+        function createTextSprite(text, color = '#ffffff') {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = 512;
+            canvas.height = 128;
+            
+            context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            
+            context.font = 'bold 32px Arial';
+            context.fillStyle = color;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText(text, canvas.width / 2, canvas.height / 2);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.SpriteMaterial({ map: texture });
+            return new THREE.Sprite(material);
+        }
+        
+        function setupControls() {
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            
+            function onKeyDown(event) {
+                switch (event.code) {
+                    case 'ArrowUp': moveForward = true; break;
+                    case 'ArrowDown': moveBackward = true; break;
+                    case 'ArrowLeft': rotateLeft = true; break;
+                    case 'ArrowRight': rotateRight = true; break;
+                    case 'Digit1': 
+                        // Only use "1" for interaction if chat interface is not open
+                        const chatInterface = document.getElementById('chatInterface');
+                        if (chatInterface.style.display !== 'block' && currentNPC) {
+                            event.preventDefault();
+                            openChat(currentNPC);
+                        }
+                        break;
+                }
+            }
+            
+            function onKeyUp(event) {
+                switch (event.code) {
+                    case 'ArrowUp': moveForward = false; break;
+                    case 'ArrowDown': moveBackward = false; break;
+                    case 'ArrowLeft': rotateLeft = false; break;
+                    case 'ArrowRight': rotateRight = false; break;
+                }
+            }
+        }
+        
+        function setupChat() {
+            const chatInput = document.getElementById('chatInput');
+            const sendButton = document.getElementById('sendButton');
+            const closeButton = document.getElementById('closeChat');
+            
+            sendButton.addEventListener('click', sendMessage);
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+            closeButton.addEventListener('click', closeChat);
+        }
+        
+        function openChat(npc) {
+            const chatInterface = document.getElementById('chatInterface');
+            const currentNPCDiv = document.getElementById('currentNPC');
+            
+            currentNPCDiv.innerHTML = `
+                <h3 style="color: ${npc.userData.data.color}; margin: 0 0 10px 0;">
+                    💬 Chatting with ${npc.userData.name}
+                </h3>
+                <p style="color: #ccc; margin: 0 0 15px 0; font-style: italic;">
+                    ${npc.userData.data.role}
+                </p>
+            `;
+            
+            chatInterface.style.display = 'block';
+            document.getElementById('chatInput').focus();
+            
+            // Don't add any welcome message - wait for user to send first message
+        }
+        
+        function closeChat() {
+            document.getElementById('chatInterface').style.display = 'none';
+            document.getElementById('chatMessages').innerHTML = '';
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (!message || !currentNPC) return;
+            
+            addMessage(message, 'user');
+            input.value = '';
+            
+            // Simulate AI response delay and fix the promise issue
+            setTimeout(async () => {
+                try {
+                    const response = await generateAIResponse(currentNPC.userData.name, message);
+                    addMessage(response, 'npc');
+                } catch (error) {
+                    console.error('Chat error:', error);
+                    addMessage("Sorry, I'm having a bit of a digital moment. Try asking me something else!", 'npc');
+                }
+            }, 1000 + Math.random() * 1500);
+        }
+        
+        function addMessage(text, sender) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.textContent = text;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function getRandomResponse(npcName) {
+            const responses = founderData[npcName].responses;
+            return responses[Math.floor(Math.random() * responses.length)];
+        }
+        
+        async function generateAIResponse(npcName, userMessage) {
+            const npcData = founderData[npcName];
+            
+            // Check if website integration is enabled
+            if (CONFIG.websiteIntegration.enabled) {
+                const chatUrl = `${CONFIG.websiteIntegration.baseUrl}?npc=${encodeURIComponent(npcName)}&message=${encodeURIComponent(userMessage)}`;
+                
+                if (CONFIG.websiteIntegration.openInNewTab) {
+                    window.open(chatUrl, '_blank');
+                    return `I've opened a detailed conversation in a new tab! Let's continue chatting there with enhanced AI capabilities.`;
+                } else {
+                    window.location.href = chatUrl;
+                    return;
+                }
+            }
+            
+            // Check if external API is enabled
+            if (CONFIG.chatAPI.enabled) {
+                try {
+                    const response = await fetch(CONFIG.chatAPI.endpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${CONFIG.chatAPI.apiKey}`
+                        },
+                        body: JSON.stringify({
+                            npcName,
+                            npcRole: npcData.role,
+                            personality: npcData.personality,
+                            userMessage,
+                            context: 'Ohnyx office simulator conversation'
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        return data.response || data.message || "Sorry, I'm having trouble thinking right now!";
+                    }
+                } catch (error) {
+                    console.warn('API call failed, falling back to local responses:', error);
+                }
+            }
+            
+            // Fallback to local response generation
+            return generateLocalResponse(npcData, userMessage);
+        }
+        
+        function generateLocalResponse(npcData, userMessage) {
+            const message = userMessage.toLowerCase();
+            
+            if (message.includes('msp') || message.includes('managed service')) {
+                const mspResponses = [
+                    "MSP stands for 'Making Support Pleasant' - at least that's my interpretation! We handle your IT headaches so you can focus on growing your business.",
+                    "Think of us as your IT pit crew. We keep your business engine running while you focus on winning the race.",
+                    "The best MSP is invisible - when everything just works, you forget we're even there. That's the goal!"
+                ];
+                return mspResponses[Math.floor(Math.random() * mspResponses.length)];
+            }
+            
+            if (message.includes('cloud') || message.includes('office 365') || message.includes('microsoft')) {
+                return `Cloud computing isn't actually in the sky, despite what the name suggests! We help Kiwi businesses migrate to the cloud safely and efficiently. Less hardware headaches, more business focus.`;
+            }
+            
+            if (message.includes('cyber') || message.includes('security') || message.includes('backup')) {
+                return `Cybersecurity is like insurance - you don't think about it until you need it. We make sure you're protected before problems arise. Better safe than sorry!`;
+            }
+            
+            if (message.includes('support') || message.includes('help') || message.includes('problem')) {
+                return `We're here 0800 646 994! Our approach is simple: understand your business first, then solve problems in plain English. No tech jargon, just solutions that work.`;
+            }
+            
+            if (message.includes('new zealand') || message.includes('nz') || message.includes('kiwi')) {
+                return `Proud to be a Kiwi MSP! We understand local business needs and provide that personal touch you won't get from overseas call centers. Plus, we speak the local lingo!`;
+            }
+            
+            if (message.includes('masterton') || message.includes('wellington') || message.includes('wairarapa')) {
+                return `We've got offices in both Masterton and Wellington, covering the greater Wairarapa and Wellington regions. Local support when you need it!`;
+            }
+            
+            if (message.includes('joke') || message.includes('funny')) {
+                const jokes = [
+                    "Why did the server go to therapy? It had too many hang-ups!",
+                    "How many IT support staff does it take to change a light bulb? None - that's a facilities issue!",
+                    "What's the difference between a computer and a toddler? The toddler eventually stops crying when you turn it off and on again."
+                ];
+                return jokes[Math.floor(Math.random() * jokes.length)];
+            }
+            
+            // Default responses with MSP focus
+            const defaultResponses = [
+                `That's an interesting question! As ${npcData.role}, I see it through the lens of keeping Kiwi businesses running smoothly.`,
+                `${npcData.personality.split('.')[0]}. What specific IT challenges is your business facing?`,
+                "Working at Ohnyx has taught me that the best IT solutions are the ones you never have to think about.",
+                `That reminds me of a client conversation we had recently. Every business has unique IT needs - what's yours?`
+            ];
+            
+            return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
+        }
+        
+        function updateMovement() {
+            const speed = 0.3;
+            const rotationSpeed = 0.05;
+            
+            if (moveForward) {
+                camera.position.x -= Math.sin(camera.rotation.y) * speed;
+                camera.position.z -= Math.cos(camera.rotation.y) * speed;
+            }
+            if (moveBackward) {
+                camera.position.x += Math.sin(camera.rotation.y) * speed;
+                camera.position.z += Math.cos(camera.rotation.y) * speed;
+            }
+            if (rotateLeft) {
+                camera.rotation.y += rotationSpeed;
+            }
+            if (rotateRight) {
+                camera.rotation.y -= rotationSpeed;
+            }
+            
+            // Keep player within bounds
+            camera.position.x = Math.max(-45, Math.min(45, camera.position.x));
+            camera.position.z = Math.max(-45, Math.min(45, camera.position.z));
+        }
+        
+        function checkNPCInteraction() {
+            const playerPos = camera.position;
+            let nearestNPC = null;
+            let nearestDistance = Infinity;
+            
+            npcs.forEach(npc => {
+                const distance = playerPos.distanceTo(npc.position);
+                if (distance < 8 && distance < nearestDistance) {
+                    nearestNPC = npc;
+                    nearestDistance = distance;
+                }
+            });
+            
+            const prompt = document.getElementById('interactionPrompt');
+            if (nearestNPC && nearestNPC !== currentNPC) {
+                currentNPC = nearestNPC;
+                prompt.style.display = 'block';
+                prompt.innerHTML = `Press <strong>1</strong> to chat with <strong>${nearestNPC.userData.name}</strong>`;
+            } else if (!nearestNPC) {
+                currentNPC = null;
+                prompt.style.display = 'none';
+            }
+        }
+        
+        function animateNPCs() {
+            const time = Date.now() * 0.001;
+            
+            npcs.forEach(npc => {
+                // Gentle floating animation
+                npc.position.y = npc.userData.originalY + Math.sin(time + npc.userData.animOffset) * 0.2;
+                
+                // Gentle rotation to make them feel alive
+                npc.rotation.y = Math.sin(time * 0.3 + npc.userData.animOffset) * 0.1;
+            });
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            updateMovement();
+            checkNPCInteraction();
+            animateNPCs();
+            
+            renderer.render(scene, camera);
+        }
+        
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        window.addEventListener('resize', onWindowResize);
+        
+        // Initialize the game
+        init();
+    </script>
+</body>
+</html>
