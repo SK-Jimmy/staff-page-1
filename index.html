@@ -163,6 +163,20 @@
     </div>
 
     <script>
+        // CONFIGURATION: Customize chat behavior here
+        const CONFIG = {
+            chatAPI: {
+                enabled: false,
+                endpoint: 'https://your-api-endpoint.com/chat',
+                apiKey: 'your-api-key-here'
+            },
+            websiteIntegration: {
+                enabled: false,
+                baseUrl: 'https://your-website.com/chat/',
+                openInNewTab: true
+            }
+        };
+        
         // Game state
         let scene, camera, renderer, player;
         let moveForward = false, moveBackward = false;
@@ -170,114 +184,125 @@
         let currentNPC = null;
         let npcs = [];
         
-        // CONFIGURATION: Customize your NPCs and chat behavior here
-        const CONFIG = {
-            // Chat API settings
-            chatAPI: {
-                enabled: false,  // Set to true to use external API
-                endpoint: 'https://your-api-endpoint.com/chat',
-                apiKey: 'your-api-key-here'
-            },
-            
-            // Website integration
-            websiteIntegration: {
-                enabled: false,  // Set to true to redirect conversations
-                baseUrl: 'https://your-website.com/chat/',
-                openInNewTab: true
-            }
-        };
-        
-        // CUSTOMIZE YOUR PEOPLE: Easily modify or add new characters
+        // Team member data with unique responses
         const founderData = {
             'Philip Harvey': {
                 position: { x: -15, z: 5 },
                 color: 0x3b82f6,
                 role: 'Director',
-                personality: 'Strategic leader who sees the big picture while keeping his feet firmly on the ground. Makes executive decisions with surprising humor.',
+                personality: 'Strategic leader with executive humor',
                 avatar: '👔',
+                wanderRadius: 8,
+                wanderSpeed: 0.7,
                 responses: [
-                    "As Director, my job is 50% strategic vision, 30% putting out fires, and 20% pretending I understand what the accountant just said.",
-                    "I love it when clients say 'just make it work' - like that's not literally what we've been trying to do this whole time!",
-                    "The secret to being a good director? Hire people smarter than you, then take credit when things go well. Just kidding! ...mostly.",
-                    "Executive summary of our MSP model: We fix stuff before it breaks, and when it does break anyway, we fix it faster than you can say 'have you tried turning it off and on again?'"
+                    "Being Director means I make all the big decisions, like whether we should have one coffee machine or two. Spoiler: we went with two.",
+                    "My job is 60% strategy, 30% firefighting, and 10% pretending I understand what Elena's spreadsheets actually mean.",
+                    "I love board meetings where we discuss 'synergistic cloud solutions.' It's like corporate bingo, but everyone's pretending the buzzwords mean something.",
+                    "Strategic planning tip: When in doubt, blame market conditions and buy more servers.",
+                    "The hardest part about being Director? Explaining to clients why good IT costs money while keeping a straight face.",
+                    "Executive summary of my day: Smiled at clients, panicked internally, delegated everything to people who actually know what they're doing."
                 ]
             },
             'Michael Hollingsworth': {
                 position: { x: 15, z: -5 },
                 color: 0x10b981,
                 role: 'Operational Manager',
-                personality: 'Keeps the chaos organized and the team functioning. Masters the art of making impossible timelines somehow work.',
+                personality: 'Manufacturing efficiency expert meets IT chaos',
                 avatar: '⚙️',
+                wanderRadius: 6,
+                wanderSpeed: 0.5,
                 responses: [
-                    "Operations is like herding cats, except the cats are IT tickets and they're all marked 'URGENT ASAP CRITICAL YESTERDAY PLEASE'.",
-                    "My manufacturing background taught me about efficiency. Turns out IT support is just manufacturing, but instead of widgets we're producing 'working computers'.",
-                    "I schedule everything except the inevitable Monday morning server meltdown. That one's always a surprise, like Christmas but with more swearing.",
-                    "Best part of operations? When everything runs so smoothly that people forget we exist. Worst part? When they remember we exist because something's broken."
+                    "Operations in IT is like running a factory where the product is 'working computer' and the raw materials are 'hope and caffeine.'",
+                    "I schedule everything perfectly, then reality shows up with a server outage and laughs at my Gantt charts.",
+                    "Manufacturing taught me about lean processes. IT taught me that 'lean' means having exactly one backup when you need seven.",
+                    "My daily KPIs: Tickets resolved, coffee consumed, times I've said 'that's not how networks work' to confused clients.",
+                    "Resource allocation is easy: Double your estimates, then pray the laws of physics don't change overnight.",
+                    "Best operational efficiency hack? Hiring people smarter than me, then taking credit for their good ideas at team meetings."
                 ]
             },
             'Kelly Pothan': {
                 position: { x: 0, z: 15 },
                 color: 0xf59e0b,
                 role: 'Team Leader',
-                personality: 'Leads by example while keeping the team motivated and clients happy. Expert at translating between tech speak and human speak.',
+                personality: 'Translator between humans and techies',
                 avatar: '👨‍💼',
+                wanderRadius: 10,
+                wanderSpeed: 0.8,
                 responses: [
-                    "Leading an IT team is like conducting an orchestra, except half the instruments are on fire and the audience keeps asking if we've tried turning it off and on again.",
-                    "My job description: Keep the team happy, keep the clients happier, and somehow make sure both groups understand each other. It's like being a UN translator for nerds.",
-                    "Team meeting agenda item #1: Remember, 'It works on my machine' is not a valid solution for client problems.",
-                    "The art of team leadership in MSP: Knowing when to say 'yes we can do that' and when to say 'yes we can do that, but here's why you probably don't want to'."
+                    "Team leadership is 40% motivation, 40% translation, and 20% stopping Richard from making clients cry with his brutal honesty.",
+                    "My superpower? Making Jake explain technical solutions without using the phrase 'obviously you just need to...'",
+                    "Team meetings: Where we pretend everyone's workload is manageable and definitely not held together by energy drinks and determination.",
+                    "Performance reviews are hilarious - 'Elena, great work on the books. Jake, please stop audibly sighing when people call monitors CPUs.'",
+                    "Leading IT people is like herding cats, if cats had opinions about network topology and strong feelings about Windows updates.",
+                    "My leadership philosophy: If the team isn't occasionally laughing at my dad jokes, morale needs work."
                 ]
             },
             'Briar Harvey': {
                 position: { x: -10, z: -15 },
                 color: 0x8b5cf6,
                 role: 'Client Success',
-                personality: 'Ensures clients are happy and successful while managing the delicate balance between expectations and reality.',
+                personality: 'Diplomatic relationship manager and expectation juggler',
                 avatar: '🤝',
+                wanderRadius: 7,
+                wanderSpeed: 0.6,
                 responses: [
-                    "Client Success is like being a therapist for businesses having relationship problems with their technology. 'Tell me, how does this server outage make you feel?'",
-                    "My superpower? Explaining why your 15-year-old system running on hopes and dreams might benefit from an upgrade. Diplomatically.",
-                    "Client expectations vs. IT reality - it's like explaining why you can't download more RAM while keeping everyone smiling.",
-                    "Success metric: When clients stop calling us because everything just works, but they still invite us to their Christmas party because we're cool like that."
+                    "Client Success means managing the delicate art of explaining why their 2005 server might benefit from retirement. Diplomatically.",
+                    "My job is part therapist, part translator, part miracle worker. 'No, we can't make it faster AND cheaper while adding seventeen new features.'",
+                    "Client relationship status: It's complicated. They love us during migrations, ghost us when invoices arrive.",
+                    "Success metrics: How many clients still invite us to their Christmas party after we've explained their backup strategy needs work.",
+                    "The client journey: Skeptical → Excited → Overwhelmed → Grateful → Repeat when something needs upgrading.",
+                    "My diplomatic training helps me say 'that's an interesting approach' instead of 'that's completely insane and will definitely break everything.'"
                 ]
             },
             'Jake Sully': {
                 position: { x: 10, z: 10 },
                 color: 0x06b6d4,
                 role: 'Level 2 Technician',
-                personality: 'The problem-solving hero who tackles the tough technical challenges when Level 1 support says "it\'s beyond me".',
+                personality: 'Technical superhero for impossible problems',
                 avatar: '🔧',
+                wanderRadius: 5,
+                wanderSpeed: 0.4,
                 responses: [
-                    "Level 2 tech support: Where 'have you tried turning it off and on again?' becomes 'okay, now we rebuild the entire network stack'.",
-                    "I'm like the special forces of IT support. When Level 1 calls for backup, I rappel in with my keyboard and a thermos of coffee.",
-                    "My troubleshooting philosophy: If it's stupid but it works, it's not stupid. If it's still broken after that, then we get creative.",
-                    "The difference between Level 1 and Level 2? Level 1 asks if you've rebooted. Level 2 knows 47 different ways to reboot and which one your specific system actually needs."
+                    "Level 2 support: Where 'have you tried rebooting?' becomes 'let me rebuild your entire network infrastructure real quick.'",
+                    "I'm basically IT special forces. When Level 1 waves the white flag, I drop in with my toolkit and aggressive googling skills.",
+                    "My troubleshooting process: Try the obvious fix, try the weird fix, sacrifice a USB cable to the tech gods, call Richard for backup.",
+                    "Client: 'It was working fine yesterday!' Me: 'Yes, and yesterday's server configuration wants its stability back.'",
+                    "Advanced support means I know 73 different ways your system can break and exactly 12 ways to fix each one.",
+                    "The Level 2 motto: If duct tape and cable ties can't fix it, we're probably looking at a hardware replacement."
                 ]
             },
             'Elena Tatham': {
                 position: { x: -20, z: 10 },
                 color: 0xec4899,
                 role: 'Book Keeper',
-                personality: 'Financial wizard who keeps the numbers straight and the invoices flowing. The only person who can make accounting seem almost fun.',
+                personality: 'Financial wizard who makes numbers make sense',
                 avatar: '📊',
+                wanderRadius: 4,
+                wanderSpeed: 0.3,
                 responses: [
-                    "Bookkeeping for an MSP is interesting - I invoice for 'made computer go beep-boop properly' and somehow that's a legitimate business expense.",
-                    "My favorite part of the job? When the accountants and the techies try to explain their worlds to each other. It's like watching a nature documentary about different species attempting communication.",
-                    "I've learned that 'emergency server upgrade' and 'emergency chocolate purchase' both fall under 'critical business expenses' in my books.",
-                    "Fun fact: The most expensive line item this month was 'prevented total IT meltdown'. ROI: Priceless. Literally, because how do you calculate the value of NOT having your business implode?"
+                    "Bookkeeping for an MSP: I invoice for 'made computer go beep properly' and somehow that's a legitimate line item.",
+                    "Monthly reports are fun - explaining why 'emergency donuts for server crisis' is a valid business expense to the accountant.",
+                    "Client payment terms translate as: 'Net 30' means 'sometime before the next ice age, hopefully.'",
+                    "My favorite expense category: 'Preventative measures.' Includes everything from UPS units to stress-relief chocolate.",
+                    "Budget meetings are like group therapy where everyone confesses their spending habits and I pretend to be shocked.",
+                    "The accounting reality: Every IT emergency somehow costs exactly $50 more than what's left in the discretionary budget."
                 ]
             },
             'Richard Hollins': {
                 position: { x: 20, z: -10 },
                 color: 0x6b7280,
                 role: 'Infrastructure Engineer',
-                personality: 'Deeply cynical about technology and human nature, but grudgingly admits when things actually work. Dry wit with a pessimistic streak.',
+                personality: 'Cynical perfectionist who expects the worst',
                 avatar: '🏗️',
+                wanderRadius: 3,
+                wanderSpeed: 0.2,
                 responses: [
-                    "Infrastructure engineering: Building digital bridges that people drive their data trucks across, then complain when the bridge isn't made of pure diamond. Charming.",
-                    "Everyone wants 99.99% uptime until they see the bill for 99.99% uptime. Then suddenly 'good enough' becomes the new corporate motto.",
-                    "I've designed networks that could survive a nuclear apocalypse, only to watch them brought down by Kevin from accounting trying to print a PDF. The irony is not lost on me.",
-                    "Client: 'Why is this so expensive?' Me: 'Because you want it to work.' Client: 'Can we make it cheaper?' Me: 'Sure, how much downtime can you tolerate?' *awkward silence*"
+                    "Infrastructure engineering: I build networks that could survive the apocalypse, then watch them die because someone unplugged the wrong cable.",
+                    "Twenty years of experience has taught me that users will find ways to break systems that violate basic laws of computer science. Impressive, really.",
+                    "Client: 'Why is this expensive?' Me: 'Because you want it to work.' Client: 'Can we make it cheaper?' Me: *hollow laugh*",
+                    "My design philosophy: Assume everything will fail spectacularly at 3 AM on a long weekend. Then over-engineer accordingly.",
+                    "Everyone wants enterprise-level reliability until they see enterprise-level pricing. Then suddenly 'good enough' becomes the corporate motto.",
+                    "The three certainties in IT: Death, taxes, and someone using the server room as storage for their Christmas decorations."
                 ]
             }
         };
@@ -455,20 +480,25 @@
                 npcGroup.add(nameTag);
                 
                 // Role tag
-                const roleTag = createTextSprite(data.role, data.color);
+                const roleTag = createTextSprite(data.role, '#' + data.color.toString(16).padStart(6, '0'));
                 roleTag.position.y = 7.5;
                 roleTag.scale.set(2, 1, 1);
                 npcGroup.add(roleTag);
                 
                 npcGroup.position.set(data.position.x, 0, data.position.z);
-                npcGroup.userData = { name, data };
+                npcGroup.userData = { 
+                    name: name,
+                    data: data,
+                    originalPos: { x: data.position.x, z: data.position.z },
+                    wanderTarget: { x: data.position.x, z: data.position.z },
+                    wanderTimer: Math.random() * 1000,
+                    isWandering: false,
+                    originalY: 0,
+                    animOffset: Math.random() * Math.PI * 2
+                };
                 
                 scene.add(npcGroup);
                 npcs.push(npcGroup);
-                
-                // Add subtle floating animation
-                npcGroup.userData.originalY = 0;
-                npcGroup.userData.animOffset = Math.random() * Math.PI * 2;
             });
         }
         
@@ -540,7 +570,7 @@
             const currentNPCDiv = document.getElementById('currentNPC');
             
             currentNPCDiv.innerHTML = `
-                <h3 style="color: ${npc.userData.data.color}; margin: 0 0 10px 0;">
+                <h3 style="color: #${npc.userData.data.color.toString(16).padStart(6, '0')}; margin: 0 0 10px 0;">
                     💬 Chatting with ${npc.userData.name}
                 </h3>
                 <p style="color: #ccc; margin: 0 0 15px 0; font-style: italic;">
@@ -550,8 +580,6 @@
             
             chatInterface.style.display = 'block';
             document.getElementById('chatInput').focus();
-            
-            // Don't add any welcome message - wait for user to send first message
         }
         
         function closeChat() {
@@ -568,7 +596,7 @@
             addMessage(message, 'user');
             input.value = '';
             
-            // Simulate AI response delay and fix the promise issue
+            // Simulate response delay and fix promise issue
             setTimeout(async () => {
                 try {
                     const response = await generateAIResponse(currentNPC.userData.name, message);
@@ -603,7 +631,7 @@
                 
                 if (CONFIG.websiteIntegration.openInNewTab) {
                     window.open(chatUrl, '_blank');
-                    return `I've opened a detailed conversation in a new tab! Let's continue chatting there with enhanced AI capabilities.`;
+                    return `I've opened a detailed conversation in a new tab! Let's continue chatting there with enhanced capabilities.`;
                 } else {
                     window.location.href = chatUrl;
                     return;
@@ -682,15 +710,9 @@
                 return jokes[Math.floor(Math.random() * jokes.length)];
             }
             
-            // Default responses with MSP focus
-            const defaultResponses = [
-                `That's an interesting question! As ${npcData.role}, I see it through the lens of keeping Kiwi businesses running smoothly.`,
-                `${npcData.personality.split('.')[0]}. What specific IT challenges is your business facing?`,
-                "Working at Ohnyx has taught me that the best IT solutions are the ones you never have to think about.",
-                `That reminds me of a client conversation we had recently. Every business has unique IT needs - what's yours?`
-            ];
-            
-            return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
+            // Use character-specific responses as fallback
+            const responses = npcData.responses;
+            return responses[Math.floor(Math.random() * responses.length)];
         }
         
         function updateMovement() {
@@ -745,11 +767,35 @@
             const time = Date.now() * 0.001;
             
             npcs.forEach(npc => {
-                // Gentle floating animation
-                npc.position.y = npc.userData.originalY + Math.sin(time + npc.userData.animOffset) * 0.2;
+                const userData = npc.userData;
+                const data = userData.data;
                 
-                // Gentle rotation to make them feel alive
-                npc.rotation.y = Math.sin(time * 0.3 + npc.userData.animOffset) * 0.1;
+                // Gentle floating animation
+                npc.position.y = userData.originalY + Math.sin(time + userData.animOffset) * 0.2;
+                
+                // Simple wandering movement in figure-8 patterns
+                if (data.wanderRadius && data.wanderSpeed) {
+                    const homeX = userData.originalPos.x;
+                    const homeZ = userData.originalPos.z;
+                    const radius = data.wanderRadius;
+                    const speed = data.wanderSpeed;
+                    
+                    const offsetX = Math.sin(time * speed) * radius * 0.3;
+                    const offsetZ = Math.cos(time * speed * 0.7) * radius * 0.2;
+                    
+                    npc.position.x = homeX + offsetX;
+                    npc.position.z = homeZ + offsetZ;
+                    
+                    // Face movement direction
+                    const dirX = Math.cos(time * speed) * speed;
+                    const dirZ = Math.sin(time * speed * 0.7) * speed;
+                    if (Math.abs(dirX) > 0.01 || Math.abs(dirZ) > 0.01) {
+                        npc.rotation.y = Math.atan2(dirX, dirZ);
+                    }
+                } else {
+                    // Gentle idle rotation
+                    npc.rotation.y = Math.sin(time * 0.3 + userData.animOffset) * 0.1;
+                }
             });
         }
         
